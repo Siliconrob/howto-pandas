@@ -1,12 +1,43 @@
 language: python
-python:
-  - "3.6"
-  - "3.6-dev" # 3.6 development branch
-  - "3.7-dev" # 3.7 development branch
-  - "nightly"
-# command to install dependencies
+sudo: false # if false, use TravisCI's container based build
+
+matrix:
+    include:
+    - python: 3.6
+      env: CONDA_ENV=py36
+
+addons:
+    apt:
+        packages:
+            - ccache
+
+cache:
+#    - pip
+    - ccache
+
+# setup miniconda for numpy, scipy, pandas
+before_install:
+    - echo "before install"
+    - export PATH=/usr/lib/ccache:$PATH
+    - wget http://repo.continuum.io/miniconda/Miniconda3-3.16.0-Linux-x86_64.sh -O miniconda.sh;
+    - bash miniconda.sh -b -p $HOME/miniconda
+    - export PATH="$HOME/miniconda/bin:$PATH"
+    - hash -r
+    - conda config --set always_yes yes --set changeps1 no
+    - conda update -q conda
+    - conda info -a
+
 install:
-  - pip install -r requirements.txt
-# command to run tests
+    - echo "install"
+    - conda env create --file ci/requirements-$CONDA_ENV.yml
+    - source activate test_env # all envs are named test_env in the yml files
+    - conda list
+    - echo $PATH
+    - ls -l /home/travis/miniconda/envs/test_env/lib
+    - pip install -e .
+
 script:
-  - pytest # or py.test for Python versions 3.5 and below
+    - py.test pvlib --cov=pvlib --cov-report term-missing
+
+after_success:
+    coveralls
